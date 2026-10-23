@@ -3,7 +3,7 @@
 Sistema di swing trading **daily**, **solo long**, su ETF, ETP ed ETC **non a leva**.
 Segue il trend, entra su pullback con conferma, controlla il rischio. Genera segnali: la decisione resta discrezionale.
 
-Stato: **fase 1 completata (specifica approvata)**. Prossima fase: backtest.
+Stato: **fase 1 completata (specifica approvata)**. **Fase 2: codice del backtest pronto**, in attesa del primo download dei prezzi.
 
 ## Principi
 
@@ -68,15 +68,41 @@ Stato: **fase 1 completata (specifica approvata)**. Prossima fase: backtest.
 - **Survivorship bias**: l'universo è la lista di oggi; gli ETF chiusi o delistati mancano. I risultati sono un limite superiore.
 - **Dati Open**: per ETF illiquidi (soprattutto Xetra) l'apertura di yfinance può coincidere con la chiusura precedente; se il problema è diffuso, si rivede il requisito del corpo rialzista.
 - **Filtro R/R**: scarta i pullback poco profondi nei trend forti (ingresso vicino ai massimi a 60 barre).
+- **Tetto 10% per posizione, 15 posizioni ed esposizione ≤ 100% non sono compatibili.** Con rischio 0,5% e stop di 1-3 ATR, la maggior parte delle posizioni raggiunge il tetto del 10%: a pieno tetto l'esposizione del 100% si esaurisce con circa 10 posizioni. Il backtest riporta esposizione media, posizioni massime e ingressi ridimensionati: da rivedere dopo i primi risultati (per esempio tetto al 6,7%).
 - **Classificazione per parole chiave** (`core`): asset class e leva sono dedotti dal nome; per Xetra il riconoscimento è meno affidabile.
 
 ## Fasi
 
 1. Specifica numerica (questo documento) ✅
-2. Backtest sui prezzi storici, con i confronti del punto 6
+2. Backtest sui prezzi storici, con i confronti del punto 6 (codice pronto, vedi sotto)
 3. Motore di portafoglio (slot, tetti, ordinamento)
 4. Scanner giornaliero (GitHub Actions) e pagina HTML: sfondo bianco, italiano, Excel di scarico, bottone Regole PDF sempre aggiornato, grafico con componente scannerv2 (dati propri, con EMA20/50 e segnale di pullback)
 
-## Da decidere
+## Struttura
 
-- Dove tenere lo storico dei prezzi senza gonfiare la storia git
+```
+scripts/swing_lib.py       parametri (specifica), indicatori, filtri e segnali
+scripts/fetch_prices.py    scarica lo storico dei prezzi aggiustati (snapshot unico)
+scripts/backtest.py        simulazione di portafoglio, baseline e metriche
+tests/test_swing.py        test su dati sintetici (python -m pytest tests -q)
+.github/workflows/         fetch-prices.yml, backtest.yml (avvio manuale)
+data/                      metadati (prices_meta.json, universe_swing.json)
+results/                   risultati del backtest
+```
+
+Lo storico dei prezzi (`prices_snapshot.parquet`) **non è in git**: vive nella Release `prices` del repo.
+In git restano solo metadati e risultati.
+
+## Come si usa
+
+1. **Una tantum**: Settings → Actions → General → Workflow permissions → *Read and write permissions*.
+2. Actions → **Scarica prezzi** → Run workflow. Prima prova con `limit_tickers` = 50 (non pubblica nulla). Poi senza limite: circa 1-1,5 ore.
+3. Actions → **Backtest** → `calibrate`: statistiche descrittive, nessun P&L. Verifica che le soglie abbiano senso.
+4. Actions → **Backtest** → `explore`: simulazione sul periodo precedente al test, per controllare la pipeline. Non si ottimizza nulla.
+5. Actions → **Backtest** → `test`: **una sola volta**. Esegue tutte le varianti pre-dichiarate sul periodo dal 2023-01-01 e scrive `results/test_result.json`; un secondo lancio viene rifiutato.
+
+Il periodo di test inizia il 2023-01-01 (`--oos-start`): va confermato prima di guardare qualsiasi risultato.
+
+## Decisioni
+
+- Storico prezzi: snapshot completo rigenerato ogni volta (i prezzi aggiustati cambiano retroattivamente a ogni dividendo), pubblicato nella Release `prices`.
