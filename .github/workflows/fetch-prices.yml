@@ -1,0 +1,56 @@
+name: Scarica prezzi
+
+# Rigenera per intero lo snapshot dei prezzi storici e lo pubblica nella Release "prices".
+# Avvio manuale. Con "limit_tickers" valorizzato e' solo una prova: non pubblica nulla.
+on:
+  workflow_dispatch:
+    inputs:
+      limit_tickers:
+        description: "Solo prova: numero massimo di strumenti (vuoto = tutti)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: swing-data
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Scarica i prezzi
+        env:
+          LIMIT_TICKERS: ${{ inputs.limit_tickers }}
+        run: python scripts/fetch_prices.py
+
+      - name: Pubblica lo snapshot nella Release "prices"
+        if: ${{ inputs.limit_tickers == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view prices >/dev/null 2>&1 || gh release create prices \
+            --title "Prezzi storici" \
+            --notes "Snapshot dei prezzi aggiustati (parquet), rigenerato dal workflow Scarica prezzi."
+          gh release upload prices data/prices_snapshot.parquet --clobber
+
+      - name: Salva i metadati nel repo
+        if: ${{ inputs.limit_tickers == '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/prices_meta.json data/universe_swing.json
+          git diff --cached --quiet || (git commit -m "Aggiorna metadati prezzi" && git pull --rebase && git push)
