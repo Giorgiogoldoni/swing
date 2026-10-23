@@ -1,0 +1,58 @@
+name: Backtest
+
+# Scarica lo snapshot dalla Release "prices" ed esegue il backtest.
+#   calibrate  statistiche descrittive sul periodo precedente al test (nessun P&L)
+#   explore    simulazione completa sul periodo precedente al test (verifica della pipeline)
+#   test       UNA sola esecuzione sul periodo di test, con tutte le varianti pre-dichiarate
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Modalita'"
+        type: choice
+        options: [calibrate, explore, test]
+        default: calibrate
+      force:
+        description: "Solo per test: consente di rigirare il test finale (sconsigliato)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: swing-backtest
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Scarica lo snapshot dei prezzi
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download prices -p prices_snapshot.parquet -D data --clobber
+
+      - name: Test automatici
+        run: pip install pytest && python -m pytest tests -q
+
+      - name: Backtest
+        run: python scripts/backtest.py --mode ${{ inputs.mode }} ${{ inputs.force && '--force' || '' }}
+
+      - name: Salva i risultati nel repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add results/
+          git diff --cached --quiet || (git commit -m "Risultati backtest (${{ inputs.mode }})" && git pull --rebase && git push)
