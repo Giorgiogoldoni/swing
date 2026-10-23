@@ -1,0 +1,289 @@
+{
+  "generated_at": "2026-10-23T08:01:46.232200+00:00",
+  "history_period": "10y",
+  "instruments_selected": 3444,
+  "ok": 3375,
+  "errors": 69,
+  "error_details": [
+    {
+      "ticker": "AXLM.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "LIDO.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ONDO.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "AFET.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ATAO.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "SYRUP.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "MORPH.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "DA20.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "BMAC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "OD7I.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "OD7K.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "BT0Y.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ET0Y.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "XRRL.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CLTC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "AVMX.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "LI0X.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "UNIX.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WBLC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WMEG.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "XTZS.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CCHA.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WCRX.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "LSTE.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WXLM.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "XDOT.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WADA.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CPYG.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CSDA.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CDOT.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CIWP.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "1VIC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CSTC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WDAF.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "VESC.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "IB37.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WETFE.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "IB36.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WBLD.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ACSW.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WDGF.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "EUTA.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "IG35.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "MAXS.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "WEM.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "VEZU.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ESWP.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "USMID.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "MAXD.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "TEND.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "H4ZM.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "9GAF.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "9GAG.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "9GAK.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "9GAL.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "XBJE.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "OOEC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "OOEB.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "00XK.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "EHEN.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "00XQ.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "00XJ.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CTEN.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "CSSC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "MDB1Y.MI",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "BTIC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "XEAL.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "3DEC.DE",
+      "motivo": "nessun dato"
+    },
+    {
+      "ticker": "ULTY.DE",
+      "motivo": "nessun dato"
+    }
+  ],
+  "rows": 4418798,
+  "first_date": "2016-10-24",
+  "last_date": "2026-10-23",
+  "note": "Prezzi aggiustati (auto_adjust=True). Snapshot pubblicato nella Release 'prices'."
+}
