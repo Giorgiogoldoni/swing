@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-23T08:01:46.232200+00:00",
+  "generated_at": "2026-10-25T20:45:41.544415+00:00",
   "history_period": "10y",
   "instruments_selected": 3444,
   "ok": 3375,
@@ -282,7 +282,7 @@
       "motivo": "nessun dato"
     }
   ],
-  "rows": 4418798,
+  "rows": 4424711,
   "first_date": "2016-10-24",
   "last_date": "2026-10-23",
   "note": "Prezzi aggiustati (auto_adjust=True). Snapshot pubblicato nella Release 'prices'."
