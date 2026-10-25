@@ -1,1 +1,451 @@
-
+{
+  "periodo": [
+    "2016-10-24",
+    "2022-12-31"
+  ],
+  "sistema": "donchian",
+  "55/20": {
+    "senza_costi": {
+      "n_trade": 486,
+      "win_rate": 0.4012,
+      "barre_medie": 42.4239,
+      "rendimento_medio_per_trade": 0.0107,
+      "rendimento_mediano_per_trade": -0.01,
+      "guadagno_medio_vincenti": 0.0834,
+      "perdita_media_perdenti": -0.0381,
+      "profit_factor_euro": 1.3546,
+      "per_anno": {
+        "2017": {
+          "n": 66,
+          "medio": -0.0078
+        },
+        "2018": {
+          "n": 86,
+          "medio": -0.0011
+        },
+        "2019": {
+          "n": 63,
+          "medio": 0.0225
+        },
+        "2020": {
+          "n": 72,
+          "medio": 0.0645
+        },
+        "2021": {
+          "n": 83,
+          "medio": -0.0007
+        },
+        "2022": {
+          "n": 116,
+          "medio": -0.0018
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 54,
+          "medio": 0.0099
+        },
+        "commodity": {
+          "n": 58,
+          "medio": 0.0214
+        },
+        "equity": {
+          "n": 374,
+          "medio": 0.0091
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 475,
+        "fine_dati": 11
+      },
+      "rendimento_totale": 0.3125,
+      "cagr": 0.045,
+      "drawdown_massimo": -0.2491,
+      "volatilita_annua": 0.1275,
+      "rendimento_su_volatilita": 0.4048,
+      "anni": 6.1793,
+      "esposizione_media": 0.8714,
+      "posizioni_max": 15,
+      "candidati_totali": 48441,
+      "scartati_per_motivo": {
+        "posizioni_piene": 45514
+      }
+    },
+    "costi_0.20%": {
+      "n_trade": 486,
+      "win_rate": 0.3786,
+      "barre_medie": 42.4239,
+      "rendimento_medio_per_trade": 0.0086,
+      "rendimento_mediano_per_trade": -0.012,
+      "guadagno_medio_vincenti": 0.0861,
+      "perdita_media_perdenti": -0.0386,
+      "profit_factor_euro": 1.2596,
+      "per_anno": {
+        "2017": {
+          "n": 66,
+          "medio": -0.0098
+        },
+        "2018": {
+          "n": 86,
+          "medio": -0.0031
+        },
+        "2019": {
+          "n": 63,
+          "medio": 0.0205
+        },
+        "2020": {
+          "n": 72,
+          "medio": 0.0623
+        },
+        "2021": {
+          "n": 83,
+          "medio": -0.0027
+        },
+        "2022": {
+          "n": 116,
+          "medio": -0.0038
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 54,
+          "medio": 0.0078
+        },
+        "commodity": {
+          "n": 58,
+          "medio": 0.0193
+        },
+        "equity": {
+          "n": 374,
+          "medio": 0.0071
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 475,
+        "fine_dati": 11
+      },
+      "rendimento_totale": 0.2312,
+      "cagr": 0.0342,
+      "drawdown_massimo": -0.2542,
+      "volatilita_annua": 0.1274,
+      "rendimento_su_volatilita": 0.3248,
+      "anni": 6.1793,
+      "esposizione_media": 0.8714,
+      "posizioni_max": 15,
+      "candidati_totali": 48441,
+      "scartati_per_motivo": {
+        "posizioni_piene": 45514
+      }
+    },
+    "costi_0.40%": {
+      "n_trade": 486,
+      "win_rate": 0.3642,
+      "barre_medie": 42.4239,
+      "rendimento_medio_per_trade": 0.0066,
+      "rendimento_mediano_per_trade": -0.014,
+      "guadagno_medio_vincenti": 0.0873,
+      "perdita_media_perdenti": -0.0396,
+      "profit_factor_euro": 1.1723,
+      "per_anno": {
+        "2017": {
+          "n": 66,
+          "medio": -0.0118
+        },
+        "2018": {
+          "n": 86,
+          "medio": -0.0051
+        },
+        "2019": {
+          "n": 63,
+          "medio": 0.0185
+        },
+        "2020": {
+          "n": 72,
+          "medio": 0.0602
+        },
+        "2021": {
+          "n": 83,
+          "medio": -0.0047
+        },
+        "2022": {
+          "n": 116,
+          "medio": -0.0058
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 54,
+          "medio": 0.0058
+        },
+        "commodity": {
+          "n": 58,
+          "medio": 0.0173
+        },
+        "equity": {
+          "n": 374,
+          "medio": 0.0051
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 475,
+        "fine_dati": 11
+      },
+      "rendimento_totale": 0.1551,
+      "cagr": 0.0236,
+      "drawdown_massimo": -0.2593,
+      "volatilita_annua": 0.1273,
+      "rendimento_su_volatilita": 0.2448,
+      "anni": 6.1793,
+      "esposizione_media": 0.8715,
+      "posizioni_max": 15,
+      "candidati_totali": 48441,
+      "scartati_per_motivo": {
+        "posizioni_piene": 45514
+      }
+    },
+    "entrata_casuale_stesso_contesto_senza_costi": {
+      "simulazioni": 5,
+      "n_trade_medio": 590.0,
+      "rendimento_medio_per_trade_medio": 0.0074,
+      "profit_factor_euro_medio": 1.3752,
+      "drawdown_massimo_medio": -0.1905,
+      "rendimento_totale_medio": 0.2842,
+      "cagr_medio": 0.0412
+    },
+    "ordine_casuale_dei_candidati_senza_costi": {
+      "simulazioni": 5,
+      "n_trade_medio": 501.0,
+      "rendimento_medio_per_trade_medio": 0.0066,
+      "profit_factor_euro_medio": 1.2646,
+      "drawdown_massimo_medio": -0.2302,
+      "rendimento_totale_medio": 0.2125,
+      "cagr_medio": 0.0316
+    }
+  },
+  "20/10": {
+    "senza_costi": {
+      "n_trade": 933,
+      "win_rate": 0.3966,
+      "barre_medie": 22.3376,
+      "rendimento_medio_per_trade": 0.0038,
+      "rendimento_mediano_per_trade": -0.0066,
+      "guadagno_medio_vincenti": 0.0488,
+      "perdita_media_perdenti": -0.0258,
+      "profit_factor_euro": 1.1957,
+      "per_anno": {
+        "2017": {
+          "n": 123,
+          "medio": -0.0004
+        },
+        "2018": {
+          "n": 167,
+          "medio": 0.0002
+        },
+        "2019": {
+          "n": 131,
+          "medio": 0.0125
+        },
+        "2020": {
+          "n": 151,
+          "medio": 0.0069
+        },
+        "2021": {
+          "n": 157,
+          "medio": 0.0074
+        },
+        "2022": {
+          "n": 204,
+          "medio": -0.0015
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 105,
+          "medio": 0.0028
+        },
+        "commodity": {
+          "n": 125,
+          "medio": 0.0106
+        },
+        "equity": {
+          "n": 703,
+          "medio": 0.0027
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 920,
+        "fine_dati": 13
+      },
+      "rendimento_totale": 0.2187,
+      "cagr": 0.0325,
+      "drawdown_massimo": -0.2355,
+      "volatilita_annua": 0.1176,
+      "rendimento_su_volatilita": 0.3276,
+      "anni": 6.1793,
+      "esposizione_media": 0.8796,
+      "posizioni_max": 15,
+      "candidati_totali": 71346,
+      "scartati_per_motivo": {
+        "posizioni_piene": 66963
+      }
+    },
+    "costi_0.20%": {
+      "n_trade": 933,
+      "win_rate": 0.3751,
+      "barre_medie": 22.3376,
+      "rendimento_medio_per_trade": 0.0018,
+      "rendimento_mediano_per_trade": -0.0086,
+      "guadagno_medio_vincenti": 0.0495,
+      "perdita_media_perdenti": -0.0269,
+      "profit_factor_euro": 1.0697,
+      "per_anno": {
+        "2017": {
+          "n": 123,
+          "medio": -0.0024
+        },
+        "2018": {
+          "n": 167,
+          "medio": -0.0018
+        },
+        "2019": {
+          "n": 131,
+          "medio": 0.0105
+        },
+        "2020": {
+          "n": 151,
+          "medio": 0.0049
+        },
+        "2021": {
+          "n": 157,
+          "medio": 0.0054
+        },
+        "2022": {
+          "n": 204,
+          "medio": -0.0035
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 105,
+          "medio": 0.0008
+        },
+        "commodity": {
+          "n": 125,
+          "medio": 0.0086
+        },
+        "equity": {
+          "n": 703,
+          "medio": 0.0007
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 920,
+        "fine_dati": 13
+      },
+      "rendimento_totale": 0.078,
+      "cagr": 0.0122,
+      "drawdown_massimo": -0.2484,
+      "volatilita_annua": 0.1177,
+      "rendimento_su_volatilita": 0.1609,
+      "anni": 6.1793,
+      "esposizione_media": 0.8796,
+      "posizioni_max": 15,
+      "candidati_totali": 71346,
+      "scartati_per_motivo": {
+        "posizioni_piene": 66963
+      }
+    },
+    "costi_0.40%": {
+      "n_trade": 933,
+      "win_rate": 0.3441,
+      "barre_medie": 22.3376,
+      "rendimento_medio_per_trade": -0.0002,
+      "rendimento_mediano_per_trade": -0.0105,
+      "guadagno_medio_vincenti": 0.0518,
+      "perdita_media_perdenti": -0.0275,
+      "profit_factor_euro": 0.9588,
+      "per_anno": {
+        "2017": {
+          "n": 123,
+          "medio": -0.0043
+        },
+        "2018": {
+          "n": 167,
+          "medio": -0.0038
+        },
+        "2019": {
+          "n": 131,
+          "medio": 0.0084
+        },
+        "2020": {
+          "n": 151,
+          "medio": 0.0029
+        },
+        "2021": {
+          "n": 157,
+          "medio": 0.0034
+        },
+        "2022": {
+          "n": 204,
+          "medio": -0.0055
+        }
+      },
+      "per_classe": {
+        "bond": {
+          "n": 105,
+          "medio": -0.0012
+        },
+        "commodity": {
+          "n": 125,
+          "medio": 0.0066
+        },
+        "equity": {
+          "n": 703,
+          "medio": -0.0013
+        }
+      },
+      "motivi_uscita": {
+        "uscita": 920,
+        "fine_dati": 13
+      },
+      "rendimento_totale": -0.0462,
+      "cagr": -0.0076,
+      "drawdown_massimo": -0.2611,
+      "volatilita_annua": 0.1178,
+      "rendimento_su_volatilita": -0.0054,
+      "anni": 6.1793,
+      "esposizione_media": 0.8796,
+      "posizioni_max": 15,
+      "candidati_totali": 71346,
+      "scartati_per_motivo": {
+        "posizioni_piene": 66963
+      }
+    },
+    "entrata_casuale_stesso_contesto_senza_costi": {
+      "simulazioni": 5,
+      "n_trade_medio": 1197.8,
+      "rendimento_medio_per_trade_medio": 0.0042,
+      "profit_factor_euro_medio": 1.2993,
+      "drawdown_massimo_medio": -0.1951,
+      "rendimento_totale_medio": 0.336,
+      "cagr_medio": 0.0479
+    },
+    "ordine_casuale_dei_candidati_senza_costi": {
+      "simulazioni": 5,
+      "n_trade_medio": 903.2,
+      "rendimento_medio_per_trade_medio": 0.0051,
+      "profit_factor_euro_medio": 1.2989,
+      "drawdown_massimo_medio": -0.1805,
+      "rendimento_totale_medio": 0.3129,
+      "cagr_medio": 0.0447
+    }
+  },
+  "buy_hold_equamente_pesato": {
+    "rendimento_totale": 0.2969,
+    "cagr": 0.043,
+    "drawdown_massimo": -0.2848,
+    "volatilita_annua": 0.1189,
+    "rendimento_su_volatilita": 0.4094,
+    "anni": 6.1793
+  }
+}
