@@ -31,14 +31,19 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from swing_lib import Params, prepare_ticker  # noqa: E402
+from swing_lib import Params, prepare_ticker, is_excluded, DONCHIAN_PAIRS  # noqa: E402
+
+
+def sl_pairs():
+    return list(DONCHIAN_PAIRS)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CAPITAL = 100_000.0
 
 F_KEYS = ["open", "high", "low", "close", "atr", "ema20", "ema50", "sar_pre",
           "swing_low3", "high60", "rank_key"]
-B_KEYS = ["signal", "elig", "trend_ok", "up_prev"]
+B_KEYS = ["signal", "elig", "trend_ok", "up_prev", "up_after", "sig_simple", "pool_simple", "pool_trend"]
+BENCH_MAX_ABS_RET = 0.25      # il benchmark ignora rendimenti giornalieri oltre il 25% in valore assoluto
 
 
 # ----------------------------------------------------------------------------
@@ -51,9 +56,12 @@ def load_prepared(prices_path, universe_path, p, limit=None, seed=0):
         uni = json.load(f)
     instruments = uni["instruments"] if isinstance(uni, dict) else uni
     asset_class = {i["ticker_yf"]: i.get("asset_class", "?") for i in instruments}
+    crypto = {i["ticker_yf"] for i in instruments
+              if is_excluded(i.get("name"), i.get("product_type"), i.get("ticker_yf"))}
 
     prices = pd.read_parquet(prices_path)
-    tickers = sorted(prices["ticker"].unique())
+    tickers = sorted(t for t in prices["ticker"].unique() if t not in crypto)
+    print(f"Esclusi (cripto, ETP Xetra, inversi/a leva): {len(crypto)}")
     if limit:
         rng = np.random.default_rng(seed)
         tickers = sorted(rng.choice(tickers, size=min(limit, len(tickers)), replace=False))
@@ -79,6 +87,23 @@ class World:
     pass
 
 
+def clean_price_spikes(close_ff):
+    """Ignora i picchi di prezzo di un solo giorno (errori dei dati): una chiusura che si discosta di oltre 2,5x
+    (o sotto 0,4x) dalla precedente e rientra il giorno dopo viene sostituita dalla chiusura precedente.
+    Serve alla valorizzazione del portafoglio: un picco falso su una posizione detenuta falserebbe equity,
+    drawdown e volatilita'. Restituisce (matrice pulita, numero di picchi)."""
+    c = close_ff.copy()
+    with np.errstate(divide="ignore", invalid="ignore"):
+        r = np.ones_like(c)
+        r[1:] = c[1:] / c[:-1]
+        r_next = np.ones_like(c)
+        r_next[:-1] = r[1:]
+        spike = ((r > 2.5) | (r < 0.4)) & (np.abs(r * r_next - 1.0) < 0.35)
+    spike &= np.isfinite(r) & np.isfinite(r_next)
+    prev = np.vstack([c[:1], c[:-1]])
+    return np.where(spike, prev, c), int(spike.sum())
+
+
 def build_world(prepared, asset_class, start, end):
     tickers = sorted(prepared)
     lo = pd.Timestamp(start) - pd.Timedelta(days=130)
@@ -89,7 +114,8 @@ def build_world(prepared, asset_class, start, end):
     n, m = len(master), len(tickers)
 
     M = {k: np.full((n, m), np.nan) for k in F_KEYS}
-    B = {k: np.zeros((n, m), dtype=bool) for k in B_KEYS}
+    bkeys = B_KEYS + sorted(k for k in prepared[tickers[0]] if k.startswith("don_"))
+    B = {k: np.zeros((n, m), dtype=bool) for k in bkeys}
     valid = np.zeros((n, m), dtype=bool)
     for j, t in enumerate(tickers):
         pr = prepared[t]
@@ -99,10 +125,10 @@ def build_world(prepared, asset_class, start, end):
         valid[ii, j] = True
         for k in F_KEYS:
             M[k][ii, j] = pr[k][ok]
-        for k in B_KEYS:
+        for k in bkeys:
             B[k][ii, j] = pr[k][ok]
 
-    close_ff = pd.DataFrame(M["close"]).ffill().to_numpy()
+    close_ff, n_spikes = clean_price_spikes(pd.DataFrame(M["close"]).ffill().to_numpy())
     ret = np.zeros_like(close_ff)
     with np.errstate(divide="ignore", invalid="ignore"):
         ret[1:] = close_ff[1:] / close_ff[:-1] - 1.0
@@ -110,7 +136,7 @@ def build_world(prepared, asset_class, start, end):
 
     w = World()
     w.master, w.tickers, w.M, w.B, w.valid = master, tickers, M, B, valid
-    w.close_ff, w.ret = close_ff, ret
+    w.close_ff, w.ret, w.n_spikes = close_ff, ret, n_spikes
     w.classes = [asset_class.get(t, "?") for t in tickers]
     w.sim_idx = np.flatnonzero(master >= pd.Timestamp(start))
     if len(w.sim_idx) and w.sim_idx[0] < 1:
@@ -170,6 +196,7 @@ def simulate(w, p, capital=CAPITAL, random_seed=None):
             "entry": pos["entry"], "exit": px, "stop_iniziale": pos["stop0"],
             "shares": pos["shares"], "D": pos["D"],
             "R": (net_exit - net_entry) / pos["D"],
+            "ret": net_exit / net_entry - 1.0,
             "pnl": pos["shares"] * (net_exit - net_entry),
             "bars": i - pos["entry_i"], "motivo": reason,
         })
@@ -303,6 +330,124 @@ def simulate(w, p, capital=CAPITAL, random_seed=None):
     }
 
 
+def random_signals_simple(w, seed):
+    """Entrate casuali nello stesso contesto (sopra EMA50, SAR rialzista, strumento eleggibile),
+    con la stessa frequenza dei segnali veri: misura quanto vale il trigger 'taglio della EMA20'."""
+    sim = np.zeros(len(w.master), dtype=bool)
+    sim[w.sim_idx] = True
+    n_sig = int((w.B["sig_simple"] & sim[:, None]).sum())
+    n_pool = int((w.B["pool_simple"] & sim[:, None]).sum())
+    prob = n_sig / n_pool if n_pool else 0.0
+    rng = np.random.default_rng(seed)
+    return w.B["pool_simple"] & (rng.random(w.B["pool_simple"].shape) < prob)
+
+
+def _simulate_ew(w, p, sig, exit_flag, capital=CAPITAL, rank_seed=None):
+    """Motore a pesi uguali: ingresso all'apertura dopo il segnale sig (matrice booleana), uscita all'apertura
+    dopo exit_flag. Nessuno stop, nessun filtro. Ogni posizione vale 1/max_positions dell'equity.
+    Ordine dei candidati: rendimento a 60 giorni / ATR% (oppure casuale se rank_seed e' valorizzato)."""
+    valid, close_ff = w.valid, w.close_ff
+    op, rk = w.M["open"], w.M["rank_key"]
+    rank_rng = np.random.default_rng(rank_seed) if rank_seed is not None else None
+    c = p.cost_per_side
+    cash = capital
+    positions, trades = {}, []
+    eq_idx, eq_val, expo_val, npos_val = [], [], [], []
+    n_cand = skipped_full = 0
+
+    def close_pos(j, i, px, reason):
+        nonlocal cash
+        pos = positions.pop(j)
+        net_exit, net_entry = px * (1 - c), pos["entry"] * (1 + c)
+        cash += pos["shares"] * net_exit
+        trades.append({
+            "ticker": w.tickers[j], "asset_class": w.classes[j],
+            "entry_date": pos["entry_date"], "exit_date": w.master[i],
+            "entry": pos["entry"], "exit": px, "shares": pos["shares"],
+            "ret": net_exit / net_entry - 1.0, "pnl": pos["shares"] * (net_exit - net_entry),
+            "bars": i - pos["entry_i"], "motivo": reason,
+        })
+
+    for i in w.sim_idx:
+        for j in list(positions):
+            if valid[i, j] and positions[j]["exit_at_open"]:
+                close_pos(j, i, op[i, j], "uscita")
+        cands = np.flatnonzero(sig[i - 1] & valid[i])
+        n_cand += len(cands)
+        if len(cands):
+            if rank_rng is not None:
+                cands = rank_rng.permutation(cands)
+            else:
+                cands = cands[np.argsort(-rk[i - 1, cands], kind="stable")]
+        for j in cands:
+            if j in positions:
+                continue
+            if len(positions) >= p.max_positions:
+                skipped_full += 1
+                continue
+            entry = op[i, j]
+            if not (np.isfinite(entry) and entry > 0):
+                continue
+            mv = sum(pos["shares"] * close_ff[i - 1, k] for k, pos in positions.items())
+            equity_now = cash + mv
+            alloc = min(equity_now / p.max_positions, cash / (1 + c))
+            if alloc < 0.005 * equity_now:
+                continue
+            shares = alloc / entry
+            cash -= shares * entry * (1 + c)
+            positions[j] = {"entry": entry, "shares": shares, "entry_i": i,
+                            "entry_date": w.master[i], "exit_at_open": False}
+        for j, pos in positions.items():
+            if valid[i, j] and exit_flag[i, j]:
+                pos["exit_at_open"] = True
+        mv = sum(pos["shares"] * close_ff[i, k] for k, pos in positions.items())
+        equity = cash + mv
+        eq_idx.append(w.master[i]); eq_val.append(equity)
+        expo_val.append(mv / equity if equity > 0 else 0.0); npos_val.append(len(positions))
+
+    if len(w.sim_idx):
+        last = w.sim_idx[-1]
+        for j in list(positions):
+            close_pos(j, last, close_ff[last, j], "fine_dati")
+        if eq_val:
+            eq_val[-1] = cash
+    return {
+        "equity": pd.Series(eq_val, index=pd.DatetimeIndex(eq_idx), name="equity"),
+        "exposure": pd.Series(expo_val, index=pd.DatetimeIndex(eq_idx)),
+        "n_positions": pd.Series(npos_val, index=pd.DatetimeIndex(eq_idx)),
+        "trades": pd.DataFrame(trades),
+        "rejections": {"posizioni_piene": int(skipped_full)},
+        "n_candidates": int(n_cand),
+    }
+
+
+def simulate_simple(w, p, capital=CAPITAL, random_seed=None):
+    """Sistema semplice: il prezzo taglia la EMA20 al rialzo, chiusura sopra EMA50, SAR rialzista.
+    Uscita al primo pallino SAR sopra il prezzo."""
+    sig = w.B["sig_simple"] if random_seed is None else random_signals_simple(w, random_seed)
+    return _simulate_ew(w, p, sig, ~w.B["up_after"], capital)
+
+
+def random_signals_donchian(w, n_in, n_out, seed):
+    """Entrate casuali tra le barre eleggibili con chiusura sopra EMA50, con la stessa frequenza dei breakout."""
+    sim = np.zeros(len(w.master), dtype=bool)
+    sim[w.sim_idx] = True
+    n_sig = int((w.B[f"don_{n_in}_{n_out}_sig"] & sim[:, None]).sum())
+    n_pool = int((w.B["pool_trend"] & sim[:, None]).sum())
+    prob = n_sig / n_pool if n_pool else 0.0
+    rng = np.random.default_rng(seed)
+    return w.B["pool_trend"] & (rng.random(w.B["pool_trend"].shape) < prob)
+
+
+def simulate_donchian(w, p, n_in, n_out, capital=CAPITAL, random_entry_seed=None, random_rank_seed=None):
+    """Canale Donchian: ingresso se la chiusura supera il massimo delle n_in barre precedenti, uscita se la chiusura
+    rompe il minimo delle n_out barre precedenti. random_entry_seed: entrate casuali nello stesso contesto;
+    random_rank_seed: stessi breakout ma ordinati a caso quando superano i posti disponibili."""
+    sig = (w.B[f"don_{n_in}_{n_out}_sig"] if random_entry_seed is None
+           else random_signals_donchian(w, n_in, n_out, random_entry_seed))
+    return _simulate_ew(w, p, sig, w.B[f"don_{n_in}_{n_out}_exit"], capital, rank_seed=random_rank_seed)
+
+
 def equal_weight_benchmark(w, capital=CAPITAL):
     """Acquisto e mantenimento equamente pesato (ribilanciato ogni giorno) degli strumenti eleggibili."""
     vals, idx = [], []
@@ -310,6 +455,7 @@ def equal_weight_benchmark(w, capital=CAPITAL):
     for i in w.sim_idx:
         mask = w.B["elig"][i - 1] & w.valid[i] & w.valid[i - 1]
         r = w.ret[i, mask]
+        r = r[np.abs(r) <= BENCH_MAX_ABS_RET]      # esclude rendimenti giornalieri impossibili (prezzi sporchi)
         eq *= 1.0 + (float(r.mean()) if len(r) else 0.0)
         vals.append(eq)
         idx.append(w.master[i])
@@ -351,21 +497,32 @@ def trade_metrics(tr):
     out = {"n_trade": int(len(tr))}
     if not len(tr):
         return out
-    R = tr["R"]
+    has_R = "R" in tr.columns and tr["R"].notna().any()
+    key = "R" if has_R else "ret"
+    R = tr[key]
     wins, losses = R[R > 0], R[R <= 0]
     out.update({
         "win_rate": _num((R > 0).mean()),
-        "aspettativa_R": _num(R.mean()),
-        "mediana_R": _num(R.median()),
-        "R_medio_vincenti": _num(wins.mean()) if len(wins) else None,
-        "R_medio_perdenti": _num(losses.mean()) if len(losses) else None,
-        "profit_factor": _num(wins.sum() / abs(losses.sum())) if losses.sum() < 0 else None,
         "barre_medie": _num(tr["bars"].mean()),
+        "rendimento_medio_per_trade": _num(tr["ret"].mean()),
+        "rendimento_mediano_per_trade": _num(tr["ret"].median()),
+        "guadagno_medio_vincenti": _num(tr.loc[tr["ret"] > 0, "ret"].mean()),
+        "perdita_media_perdenti": _num(tr.loc[tr["ret"] <= 0, "ret"].mean()),
+        "profit_factor_euro": _num(tr.loc[tr["pnl"] > 0, "pnl"].sum() / abs(tr.loc[tr["pnl"] <= 0, "pnl"].sum()))
+        if tr.loc[tr["pnl"] <= 0, "pnl"].sum() < 0 else None,
     })
-    yr = tr.groupby(pd.DatetimeIndex(tr["entry_date"]).year)["R"].agg(["count", "mean"])
-    out["per_anno"] = {int(k): {"n": int(v["count"]), "R_medio": _num(v["mean"])} for k, v in yr.iterrows()}
-    cl = tr.groupby("asset_class")["R"].agg(["count", "mean"])
-    out["per_classe"] = {k: {"n": int(v["count"]), "R_medio": _num(v["mean"])} for k, v in cl.iterrows()}
+    if has_R:
+        out.update({
+            "aspettativa_R": _num(R.mean()),
+            "mediana_R": _num(R.median()),
+            "R_medio_vincenti": _num(wins.mean()) if len(wins) else None,
+            "R_medio_perdenti": _num(losses.mean()) if len(losses) else None,
+            "profit_factor": _num(wins.sum() / abs(losses.sum())) if losses.sum() < 0 else None,
+        })
+    yr = tr.groupby(pd.DatetimeIndex(tr["entry_date"]).year)[key].agg(["count", "mean"])
+    out["per_anno"] = {int(k): {"n": int(v["count"]), "medio": _num(v["mean"])} for k, v in yr.iterrows()}
+    cl = tr.groupby("asset_class")[key].agg(["count", "mean"])
+    out["per_classe"] = {k: {"n": int(v["count"]), "medio": _num(v["mean"])} for k, v in cl.iterrows()}
     out["motivi_uscita"] = {k: int(v) for k, v in tr["motivo"].value_counts().items()}
     return out
 
@@ -458,6 +615,8 @@ def main():
     ap.add_argument("--prices", default=os.path.join(BASE_DIR, "data", "prices_snapshot.parquet"))
     ap.add_argument("--universe", default=os.path.join(BASE_DIR, "data", "universe_swing.json"))
     ap.add_argument("--outdir", default=os.path.join(BASE_DIR, "results"))
+    ap.add_argument("--system", choices=["complesso", "semplice", "donchian"], default="complesso",
+                    help="semplice: taglio EMA20 sopra EMA50, uscita al SAR; donchian: breakout 55/20 e 20/10 (solo explore)")
     ap.add_argument("--limit", type=int, default=None, help="solo debug: campione casuale di strumenti")
     ap.add_argument("--seeds", type=int, default=5, help="numero di simulazioni con entrate casuali")
     ap.add_argument("--force", action="store_true", help="consente di rigirare il test finale")
@@ -483,6 +642,49 @@ def main():
         out = calibrate(prepared, asset_class, p, first, oos - pd.Timedelta(days=1))
         _write(os.path.join(args.outdir, "calibrazione.json"), out)
         print(json.dumps(out, ensure_ascii=False, indent=2))
+        return
+
+    if args.mode == "explore" and args.system == "donchian":
+        start, end = first, oos - pd.Timedelta(days=1)
+        w = build_world(prepared, asset_class, start, end)
+        out = {"periodo": [str(start.date()), str(end.date())], "sistema": "donchian"}
+        keys = ["n_trade", "rendimento_medio_per_trade", "profit_factor_euro", "drawdown_massimo", "rendimento_totale", "cagr"]
+
+        def avg(rs):
+            return {"simulazioni": len(rs),
+                    **{f"{k}_medio": _num(np.nanmean([r.get(k) if r.get(k) is not None else np.nan for r in rs])) for k in keys}}
+
+        for n_in, n_out in sl_pairs():
+            name = f"{n_in}/{n_out}"
+            blk = {}
+            for cname, cost in [("senza_costi", 0.0), ("costi_0.20%", 0.001), ("costi_0.40%", 0.002)]:
+                blk[cname] = summarize(simulate_donchian(w, dataclasses.replace(p, cost_per_side=cost), n_in, n_out))
+            p0 = dataclasses.replace(p, cost_per_side=0.0)
+            blk["entrata_casuale_stesso_contesto_senza_costi"] = avg(
+                [summarize(simulate_donchian(w, p0, n_in, n_out, random_entry_seed=s)) for s in range(args.seeds)])
+            blk["ordine_casuale_dei_candidati_senza_costi"] = avg(
+                [summarize(simulate_donchian(w, p0, n_in, n_out, random_rank_seed=s)) for s in range(args.seeds)])
+            out[name] = blk
+        out["buy_hold_equamente_pesato"] = equity_metrics(equal_weight_benchmark(w))
+        _write(os.path.join(args.outdir, "explore_donchian.json"), out)
+        print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
+        return
+
+    if args.mode == "explore" and args.system == "semplice":
+        start, end = first, oos - pd.Timedelta(days=1)
+        w = build_world(prepared, asset_class, start, end)
+        out = {"periodo": [str(start.date()), str(end.date())], "sistema": "semplice"}
+        for name, cost in [("senza_costi", 0.0), ("costi_0.20%", 0.001), ("costi_0.40%", 0.002)]:
+            out[name] = summarize(simulate_simple(w, dataclasses.replace(p, cost_per_side=cost)))
+        rnd = [summarize(simulate_simple(w, dataclasses.replace(p, cost_per_side=0.0), random_seed=s))
+               for s in range(args.seeds)]
+        keys = ["n_trade", "rendimento_medio_per_trade", "profit_factor_euro", "drawdown_massimo", "rendimento_totale", "cagr"]
+        out["entrata_casuale_stesso_contesto_senza_costi"] = {
+            "simulazioni": len(rnd),
+            **{f"{k}_medio": _num(np.nanmean([r.get(k) if r.get(k) is not None else np.nan for r in rnd])) for k in keys}}
+        out["buy_hold_equamente_pesato"] = equity_metrics(equal_weight_benchmark(w))
+        _write(os.path.join(args.outdir, "explore_semplice.json"), out)
+        print(json.dumps(out, ensure_ascii=False, indent=2, default=str))
         return
 
     if args.mode == "explore":
