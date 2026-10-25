@@ -11,6 +11,7 @@ Convenzioni:
   (lo gestisce backtest.py).
 """
 
+import re
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -74,6 +75,52 @@ class Params:
     cost_per_side: float = 0.001
 
 
+# Coppie (N ingresso, M uscita) del canale Donchian, parametri classici delle Tartarughe: non si ottimizzano.
+DONCHIAN_PAIRS = [(55, 20), (20, 10)]
+
+
+# ----------------------------------------------------------------------------
+# Esclusione dei prodotti cripto
+# ----------------------------------------------------------------------------
+# La classificazione per asset class di core non distingue i prodotti cripto quotati su Xetra
+# (risultano 'equity'): si esclude per emittente/nome e per tipo di prodotto.
+_CRYPTO_NAME_RE = re.compile(
+    r"21\s?shares|bitwise|coinshares|virtune|valour|hashdex|nxtassets|altarius|leon\.sec|issuance\.swiss"
+    r"|dig\.ass|\bdda\b|bitcoin|\bbtc\b|ethereum|\bether\b|\bcrypto|solana|ripple|\bxrp\b|cardano"
+    r"|polkadot|chainlink|avalanche|dogecoin|litecoin|hyperliquid|celestia|aptos",
+    re.I,
+)
+
+
+def is_crypto_like(name, product_type, ticker):
+    """True se lo strumento va escluso perche' cripto (o ETP Xetra, che in pratica sono prodotti cripto/strutturati)."""
+    n = name or ""
+    if product_type == "ETF" and re.search(r"blockchain", n, re.I):
+        return False                    # ETF su aziende blockchain: sono azioni, non cripto
+    if _CRYPTO_NAME_RE.search(n):
+        return True
+    return product_type == "ETP" and str(ticker).endswith(".DE")
+
+
+# La classificazione di core lascia passare alcuni prodotti inversi o a leva (is_leveraged = falso):
+# si escludono per nome. Pattern volutamente stretti: 'short duration', 'daily hedged' e simili restano dentro.
+_LEVERAGED_NAME_RE = re.compile(
+    r"(?<![\w.])-?[2-9]x(?![\w])|[1-9]xdaily short|\bdaily short\b|\bshort ?dax\b|\bsht daily\b"
+    r"|\binv(erse)?\b.*\b(day|daily|dail)\b",
+    re.I,
+)
+
+
+def is_leveraged_like(name):
+    """True se il nome indica un prodotto a leva o inverso."""
+    return bool(_LEVERAGED_NAME_RE.search(name or ""))
+
+
+def is_excluded(name, product_type, ticker):
+    """Esclusione di universo non coperta dai flag di core: cripto, ETP Xetra, prodotti inversi o a leva."""
+    return is_crypto_like(name, product_type, ticker) or is_leveraged_like(name)
+
+
 # ----------------------------------------------------------------------------
 # Indicatori
 # ----------------------------------------------------------------------------
@@ -119,7 +166,7 @@ def awesome_oscillator(high, low, fast=5, slow=34):
     return (s.rolling(fast).mean() - s.rolling(slow).mean()).to_numpy()
 
 
-def parabolic_sar(high, low, af0=0.02, af_step=0.02, af_max=0.2):
+def parabolic_sar(high, low, af0=0.02, af_step=0.02, af_max=0.2, with_state=False):
     """SAR di Wilder, senza look-ahead.
 
     Restituisce due array allineati alle barre:
@@ -127,13 +174,17 @@ def parabolic_sar(high, low, af0=0.02, af_step=0.02, af_max=0.2):
       up_prev[i]  = True se alla fine della barra i-1 il trend SAR era rialzista
 
     Per usare il SAR come trailing stop alla barra i: se up_prev[i] e' True, lo stop e' sar_pre[i].
+    Con with_state=True restituisce anche up_after[i] = stato del trend SAR a fine barra i
+    (True = pallino sotto il prezzo, False = pallino sopra il prezzo): serve per l'uscita 'al primo pallino'.
     """
     n = len(high)
     sar_pre = np.full(n, np.nan)
     up_prev = np.zeros(n, dtype=bool)
+    up_after = np.zeros(n, dtype=bool)
     if n < 3:
-        return sar_pre, up_prev
+        return (sar_pre, up_prev, up_after) if with_state else (sar_pre, up_prev)
     up = high[1] > high[0]
+    up_after[0] = up
     if up:
         sar, ep = low[0], high[0]
     else:
@@ -165,7 +216,8 @@ def parabolic_sar(high, low, af0=0.02, af_step=0.02, af_max=0.2):
                 if low[i] < ep:
                     ep = low[i]
                     af = min(af + af_step, af_max)
-    return sar_pre, up_prev
+        up_after[i] = up
+    return (sar_pre, up_prev, up_after) if with_state else (sar_pre, up_prev)
 
 
 def _shift(x, k):
@@ -204,6 +256,11 @@ def prepare_ticker(df, p=None):
     df = df.sort_index()
     df = df[~df.index.duplicated(keep="last")]
     df = df.dropna(subset=["open", "high", "low", "close"])
+    # barre non valide (prezzi <= 0, massimo < minimo): tipico di prezzi aggiustati andati fuori scala
+    bad = (df[["open", "high", "low", "close"]] <= 0).any(axis=1) | (df["high"] < df["low"])
+    if len(df) == 0 or bad.mean() > 0.02:
+        return None                     # troppi dati non validi: strumento scartato
+    df = df[~bad]
     n = len(df)
     if n < p.min_bars + 5:
         return None
@@ -219,7 +276,7 @@ def prepare_ticker(df, p=None):
     atr = atr_wilder(h, l, c, p.atr_period)
     kma = kama(c, p.kama_er, p.kama_fast, p.kama_slow)
     ao = awesome_oscillator(h, l)
-    sar_pre, up_prev = parabolic_sar(h, l)
+    sar_pre, up_prev, up_after = parabolic_sar(h, l, with_state=True)
 
     with np.errstate(divide="ignore", invalid="ignore"):
         atr_pct = atr / c
@@ -260,6 +317,21 @@ def prepare_ticker(df, p=None):
     pullback = touch & (~eff_below) & confirm
     pullback = np.nan_to_num(pullback.astype(float)).astype(bool)
 
+    # --- Sistema semplice: il prezzo taglia la EMA20 al rialzo, sopra EMA50, con SAR rialzista ---
+    cross20 = (c > ema20) & (_shift(c, 1) <= _shift(ema20, 1))
+    pool_simple = elig & (c > ema50) & up_after
+    sig_simple = np.nan_to_num((cross20 & pool_simple).astype(float)).astype(bool)
+    pool_simple = np.nan_to_num(pool_simple.astype(float)).astype(bool)
+
+    # --- Canale Donchian: massimo/minimo delle N/M barre PRECEDENTI (la barra corrente e' esclusa) ---
+    pool_trend = np.nan_to_num((elig & (c > ema50)).astype(float)).astype(bool)
+    donchian = {}
+    for n_in, n_out in DONCHIAN_PAIRS:
+        hh = pd.Series(h).rolling(n_in).max().shift(1).to_numpy()
+        ll = pd.Series(l).rolling(n_out).min().shift(1).to_numpy()
+        donchian[f"don_{n_in}_{n_out}_sig"] = np.nan_to_num((elig & (c > hh)).astype(float)).astype(bool)
+        donchian[f"don_{n_in}_{n_out}_exit"] = np.nan_to_num((c < ll).astype(float)).astype(bool)
+
     trend_ok = trend & elig
     raw_signal = trend_ok & pullback
     signal = _apply_cooldown(raw_signal, p.cooldown)
@@ -276,7 +348,9 @@ def prepare_ticker(df, p=None):
         "dates": df.index.to_numpy("datetime64[ns]"),
         "open": o, "high": h, "low": l, "close": c, "volume": v,
         "ema20": ema20, "ema50": ema50, "atr": atr, "kama": kma, "ao": ao,
-        "sar_pre": sar_pre, "up_prev": up_prev,
+        "sar_pre": sar_pre, "up_prev": up_prev, "up_after": up_after,
+        "sig_simple": sig_simple, "pool_simple": pool_simple, "pool_trend": pool_trend,
+        **donchian,
         "atr_pct": atr_pct, "med_turnover": med_turn,
         "elig": elig, "trend": trend, "trend_ok": trend_ok,
         "pullback": pullback, "signal": signal,
