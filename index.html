@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Swing - Segnali Donchian</title>
+<style>
+  :root { --bg:#ffffff; --fg:#1b1f24; --muted:#5b6672; --line:#d9dee4; --head:#f3f5f8; --accent:#1f3a5f;
+          --pos:#0b7a3b; --neg:#b3261e; --warn-bg:#fff6e0; --warn-line:#e6c25c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  header { padding:18px 20px 8px; max-width:1500px; margin:0 auto; }
+  h1 { margin:0 0 2px; font-size:22px; color:var(--accent); }
+  .sub { color:var(--muted); font-size:13px; }
+  .warn { margin:12px 0 4px; padding:9px 12px; background:var(--warn-bg); border:1px solid var(--warn-line); border-radius:6px; font-size:13px; }
+  main { max-width:1500px; margin:0 auto; padding:0 20px 40px; }
+  .bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button { border:0; background:#fff; padding:7px 12px; cursor:pointer; font:inherit; color:var(--fg); border-right:1px solid var(--line); }
+  .seg button:last-child { border-right:0; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .tabs button .n { display:inline-block; min-width:22px; margin-left:6px; padding:0 6px; border-radius:10px; background:var(--head); color:var(--fg); font-size:12px; }
+  .tabs button.on .n { background:rgba(255,255,255,.25); color:#fff; }
+  input[type=search], select { padding:7px 9px; border:1px solid var(--line); border-radius:6px; font:inherit; background:#fff; }
+  input[type=search] { min-width:230px; }
+  .btn { display:inline-block; padding:7px 12px; border:1px solid var(--accent); border-radius:6px; background:#fff; color:var(--accent);
+         text-decoration:none; cursor:pointer; font:inherit; }
+  .btn:hover { background:var(--accent); color:#fff; }
+  .spacer { flex:1; }
+  .wrap { overflow-x:auto; border:1px solid var(--line); border-radius:6px; }
+  table { border-collapse:collapse; width:100%; min-width:1250px; }
+  th, td { padding:6px 9px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th { background:var(--head); position:sticky; top:0; cursor:pointer; user-select:none; font-weight:600; font-size:12.5px; }
+  th.num, td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  th .arr { color:var(--accent); margin-left:4px; }
+  td.nome { max-width:300px; overflow:hidden; text-overflow:ellipsis; }
+  tr.vecchio td { color:#97a0aa; }
+  a.tv { color:var(--accent); font-weight:600; text-decoration:none; }
+  a.tv:hover { text-decoration:underline; }
+  .pos { color:var(--pos); } .neg { color:var(--neg); }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:12px; font-weight:600; }
+  .tag.INGRESSO { background:#e3f4ea; color:var(--pos); } .tag.USCITA { background:#fde8e6; color:var(--neg); }
+  .tag.POS { background:#e8eef7; color:var(--accent); } .tag.FUORI { background:#f1f3f5; color:var(--muted); }
+  .note { color:var(--muted); font-size:12.5px; margin:8px 0; }
+  details { margin:10px 0; } summary { cursor:pointer; color:var(--accent); font-weight:600; }
+  details ul { margin:6px 0 0 18px; padding:0; } details li { margin:3px 0; }
+  #msg { padding:30px 0; color:var(--muted); }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Swing &ndash; Segnali Donchian</h1>
+  <div class="sub" id="sub">Caricamento dati&hellip;</div>
+  <div class="warn" id="warn" hidden></div>
+</header>
+<main>
+  <div class="bar">
+    <div class="seg" id="pairs"></div>
+    <div class="seg tabs" id="tabs"></div>
+  </div>
+  <div class="bar">
+    <input type="search" id="q" placeholder="Cerca ticker, nome o ISIN">
+    <select id="cls"><option value="">Tutte le classi</option></select>
+    <select id="ex"><option value="">Tutte le piazze</option></select>
+    <span class="spacer"></span>
+    <button class="btn" id="xl" type="button">Scarica Excel</button>
+    <a class="btn" href="regole_donchian.pdf" target="_blank" rel="noopener">Regole (PDF)</a>
+  </div>
+  <div class="note" id="count"></div>
+  <div class="wrap"><table id="tbl"><thead></thead><tbody></tbody></table></div>
+  <div id="msg" hidden></div>
+  <details>
+    <summary>Come si legge</summary>
+    <ul>
+      <li><b>Ingresso</b>: la chiusura ha superato il massimo delle N barre precedenti. Si compra all'apertura di domani.</li>
+      <li><b>Uscita</b>: con posizione aperta, la chiusura ha rotto il minimo delle M barre precedenti. Si vende all'apertura di domani.</li>
+      <li><b>In posizione</b>: rottura avvenuta in precedenza e nessuna uscita da allora. <b>Fuori</b>: strumenti eleggibili senza posizione; ordinati per vicinanza al livello di rottura.</li>
+      <li><b>Livello rottura / uscita</b>: per gli ingressi e le uscite del giorno &egrave; il livello appena superato o rotto; per gli altri &egrave; quello valido domani.</li>
+      <li><b>Ranking</b>: rendimento a 60 giorni diviso ATR%. Con pi&ugrave; ingressi dei posti liberi (massimo 15 posizioni, 1/15 del capitale ciascuna) si prendono i primi.</li>
+      <li>Lo stato &egrave; teorico per ogni strumento, senza i vincoli di portafoglio. Le righe in grigio hanno l'ultimo dato pi&ugrave; vecchio della data della pagina.</li>
+      <li>Il ticker &egrave; un collegamento a TradingView con il prefisso di borsa (.MI &rarr; MIL, .DE &rarr; XETR).</li>
+    </ul>
+  </details>
+</main>
+
+<script id="logic">
+// ---- Logica pura (testata in node): filtri, ordinamenti, righe per l'Excel ----
+var COLS = [
+  {k:'stato', t:'Segnale'}, {k:'ticker', t:'Ticker'}, {k:'nome', t:'Nome'}, {k:'isin', t:'ISIN'},
+  {k:'classe', t:'Classe'}, {k:'piazza', t:'Piazza'},
+  {k:'chiusura', t:'Chiusura', num:1, nd:2}, {k:'var_1g', t:'Var. 1g %', num:1, nd:2, sign:1},
+  {k:'livello_rottura', t:'Livello rottura', num:1, nd:2}, {k:'dist_rottura', t:'Dist. rottura %', num:1, nd:2},
+  {k:'livello_uscita', t:'Livello uscita', num:1, nd:2}, {k:'dist_uscita', t:'Dist. uscita %', num:1, nd:2},
+  {k:'giorni', t:'Giorni', num:1, nd:0}, {k:'ingresso_prezzo', t:'Prezzo ingresso', num:1, nd:2},
+  {k:'rend_da_ingresso', t:'Rend. da ingresso %', num:1, nd:2, sign:1},
+  {k:'ranking', t:'Ranking', num:1, nd:2}, {k:'ultimo_dato', t:'Ultimo dato'}
+];
+var TABS = [
+  {id:'INGRESSO', t:'Ingressi', sort:'ranking', dir:-1},
+  {id:'USCITA', t:'Uscite', sort:'dist_uscita', dir:1},
+  {id:'IN POSIZIONE', t:'In posizione', sort:'ranking', dir:-1},
+  {id:'FUORI', t:'Fuori', sort:'dist_rottura', dir:1},
+  {id:'TUTTI', t:'Tutti', sort:'ranking', dir:-1}
+];
+function filterRows(rows, tab, q, cls, ex) {
+  q = (q || '').trim().toLowerCase();
+  return rows.filter(function (r) {
+    if (tab !== 'TUTTI' && r.stato !== tab) return false;
+    if (cls && r.classe !== cls) return false;
+    if (ex && r.piazza !== ex) return false;
+    if (q) {
+      var hay = ((r.ticker || '') + ' ' + (r.nome || '') + ' ' + (r.isin || '')).toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+function sortRows(rows, key, dir) {
+  var out = rows.slice();
+  out.sort(function (a, b) {
+    var x = a[key], y = b[key];
+    var xn = (x === null || x === undefined || x === ''), yn = (y === null || y === undefined || y === '');
+    if (xn && yn) return 0;
+    if (xn) return 1;            // i valori mancanti vanno sempre in fondo
+    if (yn) return -1;
+    if (typeof x === 'string' || typeof y === 'string') return String(x).localeCompare(String(y), 'it') * dir;
+    return (x - y) * dir;
+  });
+  return out;
+}
+function excelRows(rows) {
+  return rows.map(function (r) {
+    var o = {};
+    COLS.forEach(function (c) { o[c.t] = (r[c.k] === undefined || r[c.k] === null) ? '' : r[c.k]; });
+    o['TradingView'] = r.tv || '';
+    return o;
+  });
+}
+function statoLabel(s) { return s === 'IN POSIZIONE' ? 'In posizione' : s.charAt(0) + s.slice(1).toLowerCase(); }
+if (typeof module !== 'undefined') { module.exports = { filterRows: filterRows, sortRows: sortRows, excelRows: excelRows, COLS: COLS, TABS: TABS }; }
+</script>
+
+<script id="ui">
+(function () {
+  if (typeof document === 'undefined') return;
+  var DATA = null, pair = null, tab = 'INGRESSO', sortKey = 'ranking', sortDir = -1, MAXROWS = 500;
+  var $ = function (id) { return document.getElementById(id); };
+  function fmt(v, c) {
+    if (v === null || v === undefined || v === '') return '';
+    if (!c.num) return String(v);
+    return Number(v).toLocaleString('it-IT', {minimumFractionDigits: c.nd, maximumFractionDigits: c.nd});
+  }
+  function fmtDate(s) { return s ? s.split('-').reverse().join('/') : ''; }
+  function currentRows() { return DATA.coppie[pair].righe; }
+  function visibleRows() {
+    var rows = filterRows(currentRows(), tab, $('q').value, $('cls').value, $('ex').value);
+    return sortRows(rows, sortKey, sortDir);
+  }
+  function buildPairs() {
+    var box = $('pairs'); box.textContent = '';
+    Object.keys(DATA.coppie).forEach(function (k) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = 'Donchian ' + k;
+      b.className = k === pair ? 'on' : '';
+      b.onclick = function () { pair = k; buildPairs(); buildTabs(); render(); };
+      box.appendChild(b);
+    });
+  }
+  function buildTabs() {
+    var box = $('tabs'); box.textContent = '';
+    var cnt = DATA.coppie[pair].contatori;
+    TABS.forEach(function (t) {
+      var b = document.createElement('button'); b.type = 'button';
+      b.className = t.id === tab ? 'on' : '';
+      b.appendChild(document.createTextNode(t.t));
+      var n = document.createElement('span'); n.className = 'n';
+      n.textContent = t.id === 'TUTTI' ? currentRows().length : (cnt[t.id] || 0);
+      b.appendChild(n);
+      b.onclick = function () { tab = t.id; sortKey = t.sort; sortDir = t.dir; buildTabs(); render(); };
+      box.appendChild(b);
+    });
+  }
+  function buildSelects() {
+    var cl = {}, ex = {};
+    Object.keys(DATA.coppie).forEach(function (k) {
+      DATA.coppie[k].righe.forEach(function (r) { if (r.classe) cl[r.classe] = 1; if (r.piazza) ex[r.piazza] = 1; });
+    });
+    Object.keys(cl).sort().forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; $('cls').appendChild(o); });
+    Object.keys(ex).sort().forEach(function (v) { var o = document.createElement('option'); o.value = v; o.textContent = v; $('ex').appendChild(o); });
+  }
+  function buildHead() {
+    var tr = document.createElement('tr');
+    COLS.forEach(function (c) {
+      var th = document.createElement('th'); th.textContent = c.t; if (c.num) th.className = 'num';
+      if (c.k === sortKey) { var a = document.createElement('span'); a.className = 'arr'; a.textContent = sortDir > 0 ? '\u25B2' : '\u25BC'; th.appendChild(a); }
+      th.onclick = function () {
+        if (sortKey === c.k) sortDir = -sortDir; else { sortKey = c.k; sortDir = c.num ? -1 : 1; }
+        render();
+      };
+      tr.appendChild(th);
+    });
+    var head = $('tbl').tHead; head.textContent = ''; head.appendChild(tr);
+  }
+  function render() {
+    buildHead();
+    var rows = visibleRows(), body = $('tbl').tBodies[0]; body.textContent = '';
+    var shown = rows.slice(0, MAXROWS);
+    $('count').textContent = rows.length + ' strumenti' + (rows.length > MAXROWS ? ' (mostrati i primi ' + MAXROWS + '; l\'Excel contiene tutti)' : '');
+    $('msg').hidden = rows.length > 0; $('msg').textContent = rows.length ? '' : 'Nessuno strumento per questo filtro.';
+    var frag = document.createDocumentFragment();
+    shown.forEach(function (r) {
+      var tr = document.createElement('tr'); if (r.ultimo_dato !== DATA.data_dati) tr.className = 'vecchio';
+      COLS.forEach(function (c) {
+        var td = document.createElement('td'); if (c.num) td.className = 'num';
+        var v = r[c.k];
+        if (c.k === 'stato') {
+          var s = document.createElement('span'); s.className = 'tag ' + (v === 'IN POSIZIONE' ? 'POS' : v); s.textContent = statoLabel(v); td.appendChild(s);
+        } else if (c.k === 'ticker') {
+          var a = document.createElement('a'); a.className = 'tv'; a.href = r.tv; a.target = '_blank'; a.rel = 'noopener'; a.textContent = v;
+          a.title = 'Apri su TradingView'; td.appendChild(a);
+        } else if (c.k === 'ultimo_dato') {
+          td.textContent = fmtDate(v);
+        } else {
+          td.textContent = fmt(v, c);
+          if (c.k === 'nome') { td.className = 'nome'; td.title = v || ''; }
+          if (c.sign && v !== null && v !== undefined) td.className += (v > 0 ? ' pos' : v < 0 ? ' neg' : '');
+        }
+        tr.appendChild(td);
+      });
+      frag.appendChild(tr);
+    });
+    body.appendChild(frag);
+  }
+  function download() {
+    var rows = excelRows(visibleRows()), name = 'segnali_donchian_' + pair.replace('/', '-') + '_' + DATA.data_dati;
+    if (typeof XLSX !== 'undefined') {
+      var ws = XLSX.utils.json_to_sheet(rows), wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Segnali ' + pair.replace('/', '-'));
+      XLSX.writeFile(wb, name + '.xlsx');
+    } else {                                   // alternativa se la libreria Excel non si e' caricata
+      var heads = Object.keys(rows[0] || {}), esc = function (x) { return '"' + String(x).replace(/"/g, '""') + '"'; };
+      var csv = '\uFEFF' + heads.map(esc).join(';') + '\n' + rows.map(function (r) { return heads.map(function (h) { return esc(r[h]); }).join(';'); }).join('\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv;charset=utf-8'})); a.download = name + '.csv'; a.click();
+    }
+  }
+  function init(d) {
+    DATA = d; pair = Object.keys(d.coppie)[0];
+    $('sub').textContent = 'Dati all\'ultima seduta del ' + fmtDate(d.data_dati) + ' \u00B7 ' + d.strumenti_analizzati + ' strumenti analizzati \u00B7 generato il '
+      + new Date(d.generato).toLocaleString('it-IT');
+    if (d.avvertenza) { $('warn').hidden = false; $('warn').textContent = d.avvertenza; }
+    buildSelects(); buildPairs(); buildTabs(); render();
+    $('q').addEventListener('input', render); $('cls').addEventListener('change', render); $('ex').addEventListener('change', render);
+    $('xl').addEventListener('click', download);
+  }
+  fetch('data/signals.json?t=' + Date.now()).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(init).catch(function (e) {
+      $('sub').textContent = 'Dati non disponibili.'; $('msg').hidden = false;
+      $('msg').textContent = 'Impossibile leggere data/signals.json (' + e.message + '). Esegui il workflow "Scanner segnali" o carica il file.';
+    });
+})();
+</script>
+</body>
+</html>
