@@ -1,0 +1,62 @@
+name: Scanner segnali
+
+# Ogni giorno feriale dopo la chiusura dei mercati europei: scarica 2 anni di prezzi per ogni strumento,
+# calcola i segnali Donchian, aggiorna data/signals.json e rigenera il PDF delle regole.
+# Se il download e' incompleto o i dati sono vecchi, il run fallisce e NON scrive nulla.
+on:
+  schedule:
+    - cron: "30 18 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      limit_tickers:
+        description: "Solo prova: numero massimo di strumenti (vuoto = tutti)"
+        required: false
+        default: ""
+      from_snapshot:
+        description: "Veloce (2 minuti): usa lo snapshot dei prezzi della Release invece di scaricare da Yahoo"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: swing-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Installa dipendenze
+        run: pip install -r requirements.txt
+
+      - name: Scarica lo snapshot dei prezzi (solo modalità veloce)
+        if: ${{ inputs.from_snapshot }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download prices -p prices_snapshot.parquet -D data --clobber
+
+      - name: Calcola i segnali
+        env:
+          LIMIT_TICKERS: ${{ inputs.limit_tickers }}
+        run: python scripts/scan_signals.py ${{ inputs.from_snapshot && '--from-snapshot data/prices_snapshot.parquet' || '' }}
+
+      - name: Rigenera il PDF delle regole
+        run: python scripts/generate_rules_pdf.py
+
+      - name: Salva nel repo
+        if: ${{ inputs.limit_tickers == '' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/signals.json regole_donchian.pdf
+          git diff --cached --quiet || (git commit -m "Aggiorna segnali Donchian" && git pull --rebase && git push)
