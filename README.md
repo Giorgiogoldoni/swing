@@ -3,7 +3,7 @@
 Sistema di swing trading **daily**, **solo long**, su ETF, ETP ed ETC **non a leva**.
 Segue il trend, entra su pullback con conferma, controlla il rischio. Genera segnali: la decisione resta discrezionale.
 
-Stato: **fase 1 completata (specifica approvata)**. **Fase 2: codice del backtest pronto**, in attesa del primo download dei prezzi.
+Stato: specifica approvata, backtest eseguito sui dati 2016-2022 (nessun test finale), **pagina dei segnali Donchian pronta**.
 
 ## Principi
 
@@ -113,17 +113,29 @@ La valorizzazione ignora i picchi di prezzo di un solo giorno (71 barre in tutto
 ## Struttura
 
 ```
+index.html                 pagina dei segnali Donchian (GitHub Pages)
+regole_donchian.pdf        regole, rigenerate a ogni esecuzione dello scanner
 scripts/swing_lib.py       parametri (specifica), indicatori, filtri e segnali
 scripts/fetch_prices.py    scarica lo storico dei prezzi aggiustati (snapshot unico)
 scripts/backtest.py        simulazione di portafoglio, baseline e metriche
-tests/test_swing.py        test su dati sintetici (python -m pytest tests -q)
-.github/workflows/         fetch-prices.yml, backtest.yml (avvio manuale)
-data/                      metadati (prices_meta.json, universe_swing.json)
+scripts/scan_signals.py    scanner giornaliero: calcola i segnali e scrive data/signals.json
+scripts/generate_rules_pdf.py   genera regole_donchian.pdf dai parametri reali del codice
+tests/                     test su dati sintetici (python -m pytest tests -q)
+.github/workflows/         fetch-prices.yml, backtest.yml, scan.yml
+data/                      signals.json, metadati (prices_meta.json, universe_swing.json)
 results/                   risultati del backtest
 ```
 
 Lo storico dei prezzi (`prices_snapshot.parquet`) **non è in git**: vive nella Release `prices` del repo.
 In git restano solo metadati e risultati.
+
+## Pagina dei segnali
+
+`index.html` legge `data/signals.json` e mostra, per il Donchian 55/20 e 20/10: ingressi, uscite, posizioni teoriche e strumenti fuori, con filtri, ordinamento, Excel di scarico, bottone Regole (PDF) e un collegamento TradingView per ogni ETF (.MI → MIL, .DE → XETR).
+
+1. Settings → Pages → *Deploy from a branch* → branch `main`, cartella `/ (root)` → Save. Indirizzo: `https://giorgiogoldoni.github.io/swing/`.
+2. Actions → **Scanner segnali** → Run workflow con **from_snapshot** attivo: in 2 minuti crea `data/signals.json` e `regole_donchian.pdf` dallo snapshot dei prezzi.
+3. Da quel momento lo scanner gira da solo ogni giorno feriale alle 18:30 UTC (circa un'ora, scarica 2 anni di prezzi per ogni strumento). Se il download è incompleto o i dati sono vecchi, il run fallisce e non scrive nulla.
 
 ## Come si usa
 
